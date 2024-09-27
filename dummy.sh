@@ -34,7 +34,8 @@ if [[ "$territory_code" != "CN/01" ]]; then
     fi
 else
     if [[ ! -f /jffs/nvram.nvm.backup ]]; then
-        echo "Original CFE backup file not found, exit now."
+        echo "Current CFE Region is China (CN/01)."
+		echo "But original CFE backup file not found, exit now."
         exit 1
     fi
     read -p "Current CFE Region is China (CN/01). Restore original CFE file? (Y/n): " response
