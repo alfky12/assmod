@@ -14,7 +14,7 @@ if [[ ! -f /tmp/editnvram/nvram.nvm ]]; then
 fi
 
 # Check and process territory_code
-territory_code=$(grep -oP 'territory_code=\K\w{2}/\d{2}' /tmp/editnvram/nvram.nvm)
+territory_code=$(grep -oE 'territory_code=[A-Z]{2}/[0-9]{2}' /tmp/editnvram/nvram.nvm | cut -d'=' -f2)
 
 if [[ "$territory_code" != "CN/01" ]]; then
     cp /tmp/editnvram/nvram.nvm /jffs/nvram.nvm.backup
