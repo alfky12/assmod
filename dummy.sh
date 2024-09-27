@@ -39,8 +39,10 @@ else
     fi
     read -p "Current CFE Region is China (CN/01). Restore original CFE file? (Y/n): " response
     if [[ "$response" != "Y" && "$response" != "y" ]]; then
-        cp /jffs/nvram.nvm.backup /tmp/editnvram/nvram.nvm
-        chmod 775 /tmp/editnvram/nvram.nvm
-        echo "Original CFE restored successfully, please reboot now."
-    fi
+	    echo "User canceled, exit now."
+		exit 1
+	fi
+	cp /jffs/nvram.nvm.backup /tmp/editnvram/nvram.nvm
+    chmod 775 /tmp/editnvram/nvram.nvm
+    echo "Original CFE restored successfully, please reboot now."
 fi
