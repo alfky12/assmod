@@ -5,7 +5,7 @@ ubi_device=2  # Hardcode nilai untuk uji
 
 # Prepare mount point and create dummy file
 mkdir -p /tmp/editnvram
-echo "territory_code=CN/01" > /tmp/editnvram/nvram.nvm
+echo "territory_code=AA/01" > /tmp/editnvram/nvram.nvm
 
 # Check for nvram.nvm file
 if [[ ! -f /tmp/editnvram/nvram.nvm ]]; then
