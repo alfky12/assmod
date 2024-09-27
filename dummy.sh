@@ -19,7 +19,7 @@ territory_code=$(grep -oE 'territory_code=[A-Z]{2}/[0-9]{2}' /tmp/editnvram/nvra
 if [[ "$territory_code" != "CN/01" ]]; then
     cp /tmp/editnvram/nvram.nvm /jffs/nvram.nvm.backup
     read -p "Found territory_code: $territory_code. Change to China Region (CN/01)? (Y/n): " response
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+    if [[ "$response" != "Y" && "$response" != "y" ]]; then
         echo "User canceled, exit now."
         exit 1
     fi
@@ -38,7 +38,7 @@ else
         exit 1
     fi
     read -p "Current CFE Region is China (CN/01). Restore original CFE file? (Y/n): " response
-    if [[ "$response" =~ ^[Yy]$ ]]; then
+    if [[ "$response" != "Y" && "$response" != "y" ]]; then
         cp /jffs/nvram.nvm.backup /tmp/editnvram/nvram.nvm
         chmod 775 /tmp/editnvram/nvram.nvm
         echo "Original CFE restored successfully, please reboot now."
