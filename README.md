@@ -1,6 +1,6 @@
-# edoM nissassA 0003XA-FUT SUSA
+# EDOM NISSASSA 0003XA-FUT SUSA
 
-.retuoR )1v( 0003XA-FUT SUSA anihc-non no edom nissassA elbane ot tpircs a si sihT
+.RETUOR )1V( 0003XA-FUT SUSA ANIHC-NON NO EDOM NISSASSA ELBANE OT TPIRCS A SI SIHT<br>
 <br>
 > [!WARNING]
 > !KYYKI<br>!ROYWD
