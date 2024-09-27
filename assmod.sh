@@ -1,92 +1,71 @@
 #!/bin/bash
 
-# Function to attach UBI device
-attach_ubi() {
-    ubiattach -p /dev/mtd10
-}
-
-# Function to get UBI device number
-get_ubi_device() {
-    dmesg | grep -oP 'UBI device number \K\d+'
-}
-
-# Function to mount UBI filesystem
-mount_ubi() {
-    local ubi_device="$1"
-    mkdir -p /tmp/editnvram
-    mount -t ubifs "ubi${ubi_device}_0" /tmp/editnvram
-}
-
-# Function to check for nvram.nvm file
-check_nvram_file() {
-    if [ ! -f /tmp/editnvram/nvram.nvm ]; then
-        umount /tmp/editnvram
-        echo "nvram.nvm file not found, exit now"
-        exit 1
-    fi
-}
-
-# Function to get territory_code
-get_territory_code() {
-    grep -oP 'territory_code=\K.*' /tmp/editnvram/nvram.nvm
-}
-
-# Function to backup nvram.nvm file
-backup_nvram() {
-    cp /tmp/editnvram/nvram.nvm /jffs/nvram.nvm.backup
-}
-
-# Function to prompt user for changes
-prompt_user_change() {
-    local current_code="$1"
-    echo "Found territory_code: $current_code. Change to CN/01? (Y/n)"
-    read -r user_input
-    if [[ "$user_input" =~ ^[Nn]$ ]]; then
-        umount /tmp/editnvram
-        echo "user canceled, exit now"
-        exit 1
-    fi
-}
-
-# Function to update territory_code in nvram.nvm
-update_territory_code() {
-    sed -i 's/territory_code=.*$/territory_code=CN\/01/' /tmp/editnvram/nvram.nvm
-}
-
-# Function to restore nvram.nvm.backup file
-restore_backup() {
-    if [ -f /jffs/nvram.nvm.backup ]; then
-        echo "Restore nvram.nvm.backup? (Y/n)"
-        read -r restore_input
-        if [[ "$restore_input" =~ ^[Nn]$ ]]; then
-            umount /tmp/editnvram
-            echo "user canceled, exit now"
-            exit 1
-        fi
-        [ -f /tmp/editnvram/nvram.nvm ] && rm /tmp/editnvram/nvram.nvm
-        cp /jffs/nvram.nvm.backup /tmp/editnvram/nvram.nvm
-        chmod 775 /tmp/editnvram/nvram.nvm
-    fi
-}
-
-# Main script execution
-attach_ubi
-UBI_DEV=$(get_ubi_device)
-mount_ubi "$UBI_DEV"
-check_nvram_file
-TERRITORY_CODE=$(get_territory_code)
-
-if [[ "$TERRITORY_CODE" != "CN/01" ]]; then
-    backup_nvram
+# Attach UBI device
+ubiattach -p /dev/mtd10
+if [[ $? -ne 0 ]]; then
+    echo "ubiattach failed, exit now."
+    exit 1
 fi
 
-prompt_user_change "$TERRITORY_CODE"
-update_territory_code
-umount /tmp/editnvram
-echo "Region successfully changed to CN/01 (China). Please reboot now."
+# Get UBI device number
+ubi_device=$(dmesg | grep -oE 'UBI device number [0-9]+' | awk '{print $4}')
+if [[ -z "$ubi_device" ]]; then
+    echo "ubiattach failed, exit now."
+    exit 1
+fi
 
-if [[ "$TERRITORY_CODE" == "CN/01" ]]; then
-    restore_backup
+# Prepare mount point and mount UBI filesystem
+mkdir -p /tmp/editnvram
+mount -t ubifs "ubi${ubi_device}_0" /tmp/editnvram
+if [[ $? -ne 0 ]]; then
+    echo "Mount failed, exit now."
+    exit 1
+fi
+
+# Check for nvram.nvm file
+if [[ ! -f /tmp/editnvram/nvram.nvm ]]; then
     umount /tmp/editnvram
-    echo "nvram.nvm successfully restored. Please reboot now."
+    echo "CFE file not found, exit now."
+    exit 1
+fi
+
+# Check and process territory_code
+territory_code=$(grep -oE 'territory_code=[A-Z]{2}/[0-9]{2}' /tmp/editnvram/nvram.nvm | cut -d'=' -f2)
+
+if [[ "$territory_code" != "CN/01" ]]; then
+    cp /tmp/editnvram/nvram.nvm /jffs/nvram.nvm.backup
+    read -p "Found territory_code: $territory_code. Change CFE Region to China (CN/01)? (Y/n): " response
+    if [[ "$response" != "Y" && "$response" != "y" ]]; then
+        umount /tmp/editnvram
+        echo "User canceled, exit now."
+        exit 1
+    fi
+    sed -i 's/territory_code=[^ ]*/territory_code=CN\/01/' /tmp/editnvram/nvram.nvm
+    if  grep -q 'territory_code=CN/01' /tmp/editnvram/nvram.nvm; then
+        umount /tmp/editnvram
+        echo "CFE Region successfully changed to China (CN/01). Please reboot now."
+    else
+        echo "Edit process failed, restoring original CFE."
+        cp /jffs/nvram.nvm.backup /tmp/editnvram/nvram.nvm
+        chmod 775 /tmp/editnvram/nvram.nvm
+        umount /tmp/editnvram
+        echo "Original CFE restored successfully, please reboot now."
+    fi
+else
+    if [[ ! -f /jffs/nvram.nvm.backup ]]; then
+        umount /tmp/editnvram
+        echo "Current CFE Region is China (CN/01)."
+        echo "But original CFE backup file not found, exit now."
+        exit 1
+    fi
+    read -p "Current CFE Region is China (CN/01). Restore original CFE file? (Y/n): " response
+    if [[ "$response" != "Y" && "$response" != "y" ]]; then
+        umount /tmp/editnvram
+        echo "User canceled, exit now."
+        exit 1
+    fi
+    cp /jffs/nvram.nvm.backup /tmp/editnvram/nvram.nvm
+    chmod 775 /tmp/editnvram/nvram.nvm
+    umount /tmp/editnvram
+    echo "Original CFE restored successfully, please reboot now."
 fi
