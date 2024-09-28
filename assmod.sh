@@ -1,14 +1,13 @@
 #!/bin/bash
 
-# Attach UBI device
-ubiattach -p /dev/mtd10
-if [[ $? -ne 0 ]]; then
+# Attach UBI device and check for errors
+if ! ubiattach -p /dev/mtd10 > /tmp/ubiattach_output.txt 2>&1; then
     echo "ubiattach failed, exit now."
     exit 1
 fi
 
 # Get UBI device number
-ubi_device=$(dmesg | grep -oE 'UBI device number [0-9]+' | awk '{print $4}')
+ubi_device=$(grep 'UBI device number' /tmp/ubiattach_output.txt | awk '{print $4}' | tr -d ',')
 if [[ -z "$ubi_device" ]]; then
     echo "ubiattach failed, exit now."
     exit 1
@@ -16,8 +15,7 @@ fi
 
 # Prepare mount point and mount UBI filesystem
 mkdir -p /tmp/editnvram
-mount -t ubifs "ubi${ubi_device}_0" /tmp/editnvram
-if [[ $? -ne 0 ]]; then
+if ! mount -t ubifs "ubi${ubi_device}_0" /tmp/editnvram; then
     echo "Mount failed, exit now."
     exit 1
 fi
