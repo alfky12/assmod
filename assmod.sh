@@ -1,69 +1,91 @@
 #!/bin/bash
 
-# Attach UBI device and check for errors
+echo "Attach UBI device."
 if ! ubiattach -p /dev/mtd10 > /tmp/ubiattach_output.txt 2>&1; then
     echo "ubiattach failed, exit now."
     exit 1
 fi
+sleep 1
 
-# Get UBI device number
+echo "Get UBI device number."
 ubi_device=$(grep 'UBI device number' /tmp/ubiattach_output.txt | awk '{print $4}' | tr -d ',')
 if [[ -z "$ubi_device" ]]; then
+    ubidetach -p /dev/mtd10
     echo "ubiattach failed, exit now."
     exit 1
 fi
+sleep 1
 
-# Prepare mount point and mount UBI filesystem
+echo "Prepare mount point and mount UBI filesystem."
 mkdir -p /tmp/editnvram
 if ! mount -t ubifs "ubi${ubi_device}_0" /tmp/editnvram; then
+    ubidetach -p /dev/mtd10
     echo "Mount failed, exit now."
     exit 1
 fi
+sleep 1
 
-# Check for nvram.nvm file
+echo "Check if FACTORY NVRAM file exist."
 if [[ ! -f /tmp/editnvram/nvram.nvm ]]; then
     umount /tmp/editnvram
-    echo "CFE file not found, exit now."
+    ubidetach -p /dev/mtd10
+    echo "FACTORY NVRAM file not found, exit now."
     exit 1
 fi
+sleep 1
 
-# Check and process territory_code
+echo "Check current FACTORY NVRAM region code."
 territory_code=$(grep -oE 'territory_code=[A-Z]{2}/[0-9]{2}' /tmp/editnvram/nvram.nvm | cut -d'=' -f2)
+sleep 1
 
 if [[ "$territory_code" != "CN/01" ]]; then
     cp /tmp/editnvram/nvram.nvm /jffs/nvram.nvm.backup
-    read -p "Found territory_code: $territory_code. Change CFE Region to China (CN/01)? (Y/n): " response
+    echo "Found FACTORY NVRAM region code: $territory_code."
+    sleep 1
+    echo "Backup original FACTORY NVRAM start."
+    sleep 1
+    echo "Backup original FACTORY NVRAM done."
+    read -p "Change FACTORY NVRAM Region to China (CN/01)? (Y/n): " response
     if [[ "$response" != "Y" && "$response" != "y" ]]; then
         umount /tmp/editnvram
+        ubidetach -p /dev/mtd10
         echo "User canceled, exit now."
         exit 1
     fi
     sed -i 's/territory_code=[^ ]*/territory_code=CN\/01/' /tmp/editnvram/nvram.nvm
+    sleep 1
     if  grep -q 'territory_code=CN/01' /tmp/editnvram/nvram.nvm; then
         umount /tmp/editnvram
-        echo "CFE Region successfully changed to China (CN/01). Please reboot now."
+        echo "FACTORY NVRAM region successfully changed to China (CN/01). Please reboot now."
     else
-        echo "Edit process failed, restoring original CFE."
+        echo "Edit process failed, restoring original FACTORY NVRAM."
         cp /jffs/nvram.nvm.backup /tmp/editnvram/nvram.nvm
         chmod 775 /tmp/editnvram/nvram.nvm
         umount /tmp/editnvram
-        echo "Original CFE restored successfully, please reboot now."
+        sleep 1
+        echo "Original FACTORY NVRAM restored successfully, please reboot now."
     fi
 else
     if [[ ! -f /jffs/nvram.nvm.backup ]]; then
         umount /tmp/editnvram
-        echo "Current CFE Region is China (CN/01)."
-        echo "But original CFE backup file not found, exit now."
+        ubidetach -p /dev/mtd10
+        echo "Found FACTORY NVRAM region code: $territory_code."
+        echo "It is already China Region."
+        echo "But original FACTORY NVRAM backup file not found, exit now."
         exit 1
     fi
-    read -p "Current CFE Region is China (CN/01). Restore original CFE file? (Y/n): " response
+    echo "Found FACTORY NVRAM region code: $territory_code."
+    echo "It is already China Region."
+    read -p "Restore original FACTORY NVRAM file? (Y/n): " response
     if [[ "$response" != "Y" && "$response" != "y" ]]; then
         umount /tmp/editnvram
+        ubidetach -p /dev/mtd10
         echo "User canceled, exit now."
         exit 1
     fi
     cp /jffs/nvram.nvm.backup /tmp/editnvram/nvram.nvm
     chmod 775 /tmp/editnvram/nvram.nvm
     umount /tmp/editnvram
-    echo "Original CFE restored successfully, please reboot now."
+    sleep 1
+    echo "Original FACTORY NVRAM restored successfully, please reboot now."
 fi
