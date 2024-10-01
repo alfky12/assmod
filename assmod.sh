@@ -1,91 +1,74 @@
 #!/bin/bash
 
-echo "Attach UBI device."
+echo "Preparing, Please wait..."
 if ! ubiattach -p /dev/mtd10 > /tmp/ubiattach_output.txt 2>&1; then
-    echo "ubiattach failed, exit now."
+    echo "ubiattach failed, abort!"
     exit 1
 fi
-sleep 1
 
-echo "Get UBI device number."
 ubi_device=$(grep 'UBI device number' /tmp/ubiattach_output.txt | awk '{print $4}' | tr -d ',')
 if [[ -z "$ubi_device" ]]; then
     ubidetach -p /dev/mtd10
-    echo "ubiattach failed, exit now."
+    echo "ubiattach failed, abort!"
     exit 1
 fi
-sleep 1
 
-echo "Prepare mount point and mount UBI filesystem."
 mkdir -p /tmp/editnvram
 if ! mount -t ubifs "ubi${ubi_device}_0" /tmp/editnvram; then
     ubidetach -p /dev/mtd10
-    echo "Mount failed, exit now."
+    echo "Mount failed, abort!"
     exit 1
 fi
-sleep 1
 
-echo "Check if FACTORY NVRAM file exist."
 if [[ ! -f /tmp/editnvram/nvram.nvm ]]; then
     umount /tmp/editnvram
     ubidetach -p /dev/mtd10
-    echo "FACTORY NVRAM file not found, exit now."
+    echo "FACTORY NVRAM file not found, abort!"
     exit 1
 fi
-sleep 1
 
-echo "Check current FACTORY NVRAM region code."
 territory_code=$(grep -oE 'territory_code=[A-Z]{2}/[0-9]{2}' /tmp/editnvram/nvram.nvm | cut -d'=' -f2)
 sleep 1
 
 if [[ "$territory_code" != "CN/01" ]]; then
     cp /tmp/editnvram/nvram.nvm /jffs/nvram.nvm.backup
-    echo "Found FACTORY NVRAM region code: $territory_code."
-    sleep 1
-    echo "Backup original FACTORY NVRAM start."
-    sleep 1
-    echo "Backup original FACTORY NVRAM done."
-    read -p "Change FACTORY NVRAM Region to China (CN/01)? (Y/n): " response
+    read -p "Backup has been done. Activate ASSASSIN MODE now? (Y/n): " response
     if [[ "$response" != "Y" && "$response" != "y" ]]; then
         umount /tmp/editnvram
         ubidetach -p /dev/mtd10
-        echo "User canceled, exit now."
+        echo "User canceled, abort!"
         exit 1
     fi
     sed -i 's/territory_code=[^ ]*/territory_code=CN\/01/' /tmp/editnvram/nvram.nvm
     sleep 1
     if  grep -q 'territory_code=CN/01' /tmp/editnvram/nvram.nvm; then
         umount /tmp/editnvram
-        echo "FACTORY NVRAM region successfully changed to China (CN/01). Please reboot now."
+        nvram set location_code=XX
+        nvram commit
+        echo "ASSASSIN MODE Activated. Please reboot now."
     else
-        echo "Edit process failed, restoring original FACTORY NVRAM."
         cp /jffs/nvram.nvm.backup /tmp/editnvram/nvram.nvm
         chmod 775 /tmp/editnvram/nvram.nvm
         umount /tmp/editnvram
-        sleep 1
-        echo "Original FACTORY NVRAM restored successfully, please reboot now."
+        echo "Process failed. Backup restored successfully. Please reboot now."
     fi
 else
     if [[ ! -f /jffs/nvram.nvm.backup ]]; then
         umount /tmp/editnvram
         ubidetach -p /dev/mtd10
-        echo "Found FACTORY NVRAM region code: $territory_code."
-        echo "It is already China Region."
-        echo "But original FACTORY NVRAM backup file not found, exit now."
+        echo "Backup file not found, restore not possible, abort!"
         exit 1
     fi
-    echo "Found FACTORY NVRAM region code: $territory_code."
-    echo "It is already China Region."
-    read -p "Restore original FACTORY NVRAM file? (Y/n): " response
+    read -p "Restore to original? (Y/n): " response
     if [[ "$response" != "Y" && "$response" != "y" ]]; then
         umount /tmp/editnvram
         ubidetach -p /dev/mtd10
-        echo "User canceled, exit now."
+        echo "User canceled, abort!"
         exit 1
     fi
     cp /jffs/nvram.nvm.backup /tmp/editnvram/nvram.nvm
     chmod 775 /tmp/editnvram/nvram.nvm
     umount /tmp/editnvram
     sleep 1
-    echo "Original FACTORY NVRAM restored successfully, please reboot now."
+    echo "Restore to original success. Please reboot now."
 fi
